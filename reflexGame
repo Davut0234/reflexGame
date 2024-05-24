@@ -1,0 +1,246 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 64  // OLED display height, in pixels
+#define OLED_RESET -1     // Reset pin # (or -1 if sharing Arduino reset pin)
+#define RESET_BUTTON 11   // Reset button pin
+#define player1Led A0
+#define player2Led A1
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Pin numbers array
+const int NUM_PINS = 7;
+int pins[NUM_PINS] = { 2, 3, 4, 5, 6, 7, 8 };
+const int buttonPin1 = 9;   // Button pin for player 1
+const int buttonPin2 = 10;  // Button pin for player 2
+
+// Countdown variables
+int num = 4;
+unsigned long previousMillis = 0;
+unsigned long countdownInterval = 1000;
+bool changeScreen = false;
+// Player variables
+bool buttonPressed1 = false;
+bool buttonPressed2 = false;
+int currentPlayer = 1;
+int oldPlayer = 0;
+int player1Score = 0;
+int player2Score = 0;
+int roundNumber = 1;
+bool roundCompleted = false;
+bool gameFinished = false;
+bool isPointGiven = false;
+bool isButtonLocked = false;
+// Pin states array for each number (0-4)
+int pinStates[][NUM_PINS] = {
+  { 0, 0, 0, 0, 0, 0, 1 },  // 0
+  { 1, 0, 0, 1, 1, 1, 1 },  // 1
+  { 0, 0, 1, 0, 0, 1, 0 },  // 2
+  { 0, 0, 0, 0, 1, 1, 0 },  // 3
+  { 1, 0, 0, 1, 1, 0, 0 }   // 4
+};
+
+// Debounce time (ms)
+const int debounceTime = 40;
+
+// Last debounce times for buttons
+unsigned long lastDebounceTime1 = 0;
+unsigned long lastDebounceTime2 = 0;
+
+// Function to determine point awarded based on round
+int getPointsForRound() {
+  if (roundNumber <= 1) {
+    return 1;
+  } else if (roundNumber <= 5) {
+    return roundNumber;
+  } else {
+    return (roundNumber)*2 / 3 + 4;  // More points for extra rounds
+  }
+}
+
+// Countdown function
+void countdown() {
+  if (millis() - previousMillis >= countdownInterval) {
+
+    previousMillis = millis();
+    isPointGiven = false;
+
+    // Update display for the next number
+    for (int i = 0; i < NUM_PINS; i++) {
+      digitalWrite(pins[i], pinStates[num][i]);
+    }
+    num--;
+
+    if (num < 0) {
+      num = 4;
+      roundCompleted = true;
+      isButtonLocked = false;
+        buttonPressed1 = false;
+        buttonPressed2 = false;
+    }
+  }
+ // Serial.println(isButtonLocked);
+  if (!isPointGiven) {
+    if (!isButtonLocked) {
+      if ((num == 0) && ((currentPlayer == 1 && buttonPressed1) || (currentPlayer == 2 && buttonPressed2))) {
+        int points = getPointsForRound();
+        isPointGiven = true;
+        if (currentPlayer == 1) {
+          player1Score += points;
+          return;
+        } else {
+          player2Score += points;
+          return;
+        }
+      } else {
+        if (buttonPressed1 || buttonPressed2) {
+
+          isButtonLocked = true;
+        }
+        buttonPressed1 = false;
+        buttonPressed2 = false;
+      }
+    }
+  }
+}
+
+// Function to check button press for player 1
+void checkButton1() {
+  unsigned long currentMillis = millis();
+  int buttonState = digitalRead(buttonPin1);
+  if (buttonState == HIGH && (currentMillis - lastDebounceTime1 > debounceTime)) {
+    buttonPressed1 = true;
+    lastDebounceTime1 = currentMillis;
+  }
+}
+
+// Function to check button press for player 2
+void checkButton2() {
+  unsigned long currentMillis = millis();
+  int buttonState = digitalRead(buttonPin2);
+  if (buttonState == HIGH && (currentMillis - lastDebounceTime2 > debounceTime)) {
+    buttonPressed2 = true;
+    lastDebounceTime2 = currentMillis;
+  }
+}
+
+
+
+
+void updateScreen() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("Round: ");
+  display.println(roundNumber);
+  display.print("Player 1 Score: ");
+  display.println(player1Score);
+  display.print("Player 2 Score: ");
+  display.println(player2Score);
+  display.setTextSize(2);
+  display.print("Current \nPlayer: ");
+  display.println(currentPlayer);
+  display.display();
+  display.setTextSize(1);
+}
+
+
+
+void setup() {
+  Serial.begin(9600);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;)
+      ;
+  }
+
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1.3);
+  display.setCursor(0, 0);
+  display.println("Game Starting...");
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+
+  for (int i = 0; i < NUM_PINS; i++) {
+    pinMode(pins[i], OUTPUT);
+  }
+  pinMode(buttonPin1, INPUT);
+  pinMode(buttonPin2, INPUT);
+  pinMode(RESET_BUTTON, INPUT);
+  pinMode(player1Led, OUTPUT);
+  pinMode(player2Led, OUTPUT);
+  digitalWrite(player1Led, 0);
+  digitalWrite(player2Led, 0);
+  updateScreen();
+}
+
+void loop() {
+  if (!gameFinished) {
+    countdown();
+
+    if (!roundCompleted) {
+      if (currentPlayer == 1) {
+        checkButton1();
+
+        digitalWrite(player1Led, 1);
+        digitalWrite(player2Led, 0);
+
+      } else {
+        checkButton2();
+
+        digitalWrite(player1Led, 0);
+        digitalWrite(player2Led, 1);
+      }
+    }
+
+    if (roundCompleted) {
+      delay(2000);
+      //countdownInterval -= 300;
+      num = 4;
+      roundCompleted = false;
+
+      // Increase round number only after player 2's turn
+      if (currentPlayer == 2) {
+        countdownInterval = int(countdownInterval * (1 - (0.09 * roundNumber)));
+        roundNumber++;
+      }
+
+      currentPlayer = (currentPlayer == 1) ? 2 : 1;     if (oldPlayer != currentPlayer) {
+        updateScreen();
+      }
+      oldPlayer = currentPlayer;
+      // Check for end of game or start of extra round
+      if (roundNumber >= 6) {
+        if (player1Score > player2Score) {
+          display.clearDisplay();
+          display.setCursor(0, 0);
+          display.println("Player 1 Wins!");
+          display.display();
+          delay(5000);
+          gameFinished = true;
+        } else if (player1Score < player2Score) {
+          display.clearDisplay();
+          display.setCursor(0, 0);
+          display.println("Player 2 Wins!");
+          display.display();
+          delay(5000);
+          gameFinished = true;
+        } else {
+          // roundNumber++; // Start of extra round
+        }
+      }
+    }
+
+  } else {
+    // Game finished, waiting for reset button press
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.println("Game Over");
+    display.println("Press Reset Button");
+    display.display();
+  }
+}
