@@ -2,39 +2,39 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define SCREEN_WIDTH 128  // OLED display width, in pixels
-#define SCREEN_HEIGHT 64  // OLED display height, in pixels
-#define OLED_RESET -1     // Reset pin # (or -1 if sharing Arduino reset pin)
-#define RESET_BUTTON 11   // Reset button pin
-#define player1Led A0
-#define player2Led A1
+#define SCREEN_WIDTH 128  // OLED ekran genişliği (piksel)
+#define SCREEN_HEIGHT 64  // OLED ekran yüksekliği (piksel)
+#define OLED_RESET -1     // OLED reset pini (kullanılmıyor, Arduino'nun reset pinine bağlı)
+#define RESET_BUTTON 11   // Sıfırlama butonu pini
+#define player1Led A0     // 1. oyuncu LED pini
+#define player2Led A1     // 2. oyuncu LED pini
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Pin numbers array
+// Pin numaraları dizisi (7-segment gösterge kontrolü için)
 const int NUM_PINS = 7;
 int pins[NUM_PINS] = { 2, 3, 4, 5, 6, 7, 8 };
-const int buttonPin1 = 9;   // Button pin for player 1
-const int buttonPin2 = 10;  // Button pin for player 2
+const int buttonPin1 = 9;   // 1. oyuncunun buton pini
+const int buttonPin2 = 10;  // 2. oyuncunun buton pini
 
-// Countdown variables
-int num = 4;
-unsigned long previousMillis = 0;
-unsigned long countdownInterval = 1000;
-bool changeScreen = false;
-// Player variables
-bool buttonPressed1 = false;
-bool buttonPressed2 = false;
-int currentPlayer = 1;
-int oldPlayer = 0;
-int player1Score = 0;
-int player2Score = 0;
-int roundNumber = 1;
-bool roundCompleted = false;
-bool gameFinished = false;
-bool isPointGiven = false;
-bool isButtonLocked = false;
-// Pin states array for each number (0-4)
+// Geri sayım değişkenleri
+int num = 4;                          // Geri sayım başlangıç sayısı
+unsigned long previousMillis = 0;     // Son geri sayım zamanı
+unsigned long countdownInterval = 1000; // Geri sayım aralığı (ms)
+bool changeScreen = false;            // OLED ekranın yenilenmesi için flag
+// Oyuncu değişkenleri
+bool buttonPressed1 = false;          // 1. oyuncunun buton basma durumu
+bool buttonPressed2 = false;          // 2. oyuncunun buton basma durumu
+int currentPlayer = 1;                // Şu anki aktif oyuncu
+int oldPlayer = 0;                    // Bir önceki oyuncu
+int player1Score = 0;                 // 1. oyuncunun puanı
+int player2Score = 0;                 // 2. oyuncunun puanı
+int roundNumber = 1;                  // Tur numarası
+bool roundCompleted = false;          // Tur tamamlanma durumu
+bool gameFinished = false;            // Oyun bitiş durumu
+bool isPointGiven = false;            // Puan verilip verilmediği
+bool isButtonLocked = false;          // Buton kilit durumu
+// Her sayıya karşılık gelen pin durumları (0-4 için)
 int pinStates[][NUM_PINS] = {
   { 0, 0, 0, 0, 0, 0, 1 },  // 0
   { 1, 0, 0, 1, 1, 1, 1 },  // 1
@@ -43,61 +43,60 @@ int pinStates[][NUM_PINS] = {
   { 1, 0, 0, 1, 1, 0, 0 }   // 4
 };
 
-// Debounce time (ms)
+// Buton debounce süresi (ms)
 const int debounceTime = 40;
 
-// Last debounce times for buttons
+// Butonlar için son debounce zamanları
 unsigned long lastDebounceTime1 = 0;
 unsigned long lastDebounceTime2 = 0;
 
-// Function to determine point awarded based on round
+// Tura göre puan hesaplama fonksiyonu
 int getPointsForRound() {
-  if (roundNumber <= 1) {
+  if (roundNumber <= 1) {  // İlk tur
     return 1;
-  } else if (roundNumber <= 5) {
+  } else if (roundNumber <= 5) {  // 2-5. turlar
     return roundNumber;
-  } else {
-    return (roundNumber)*2 / 3 + 4;  // More points for extra rounds
+  } else {  // Ekstra turlar
+    return (roundNumber)*2 / 3 + 4;
   }
 }
 
-// Countdown function
+// Geri sayım fonksiyonu
 void countdown() {
   if (millis() - previousMillis >= countdownInterval) {
-
     previousMillis = millis();
     isPointGiven = false;
 
-    // Update display for the next number
+    // Bir sonraki sayıyı göstermek için pinleri güncelle
     for (int i = 0; i < NUM_PINS; i++) {
       digitalWrite(pins[i], pinStates[num][i]);
     }
     num--;
 
-    if (num < 0) {
+    if (num < 0) {  // Geri sayım bittiğinde
       num = 4;
       roundCompleted = true;
       isButtonLocked = false;
-        buttonPressed1 = false;
-        buttonPressed2 = false;
+      buttonPressed1 = false;
+      buttonPressed2 = false;
     }
   }
- // Serial.println(isButtonLocked);
+
+  // Puanlama kontrolü
   if (!isPointGiven) {
     if (!isButtonLocked) {
       if ((num == 0) && ((currentPlayer == 1 && buttonPressed1) || (currentPlayer == 2 && buttonPressed2))) {
         int points = getPointsForRound();
         isPointGiven = true;
         if (currentPlayer == 1) {
-          player1Score += points;
+          player1Score += points;  // 1. oyuncuya puan ekle
           return;
         } else {
-          player2Score += points;
+          player2Score += points;  // 2. oyuncuya puan ekle
           return;
         }
       } else {
         if (buttonPressed1 || buttonPressed2) {
-
           isButtonLocked = true;
         }
         buttonPressed1 = false;
@@ -107,7 +106,7 @@ void countdown() {
   }
 }
 
-// Function to check button press for player 1
+// 1. oyuncunun buton basma durumunu kontrol et
 void checkButton1() {
   unsigned long currentMillis = millis();
   int buttonState = digitalRead(buttonPin1);
@@ -117,7 +116,7 @@ void checkButton1() {
   }
 }
 
-// Function to check button press for player 2
+// 2. oyuncunun buton basma durumunu kontrol et
 void checkButton2() {
   unsigned long currentMillis = millis();
   int buttonState = digitalRead(buttonPin2);
@@ -127,9 +126,7 @@ void checkButton2() {
   }
 }
 
-
-
-
+// OLED ekranı güncelle
 void updateScreen() {
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -146,11 +143,9 @@ void updateScreen() {
   display.setTextSize(1);
 }
 
-
-
 void setup() {
   Serial.begin(9600);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {  // OLED ekran başlangıç kontrolü
     Serial.println(F("SSD1306 allocation failed"));
     for (;;)
       ;
@@ -165,6 +160,7 @@ void setup() {
   delay(2000);
   display.clearDisplay();
 
+  // Pinleri ayarla
   for (int i = 0; i < NUM_PINS; i++) {
     pinMode(pins[i], OUTPUT);
   }
@@ -179,41 +175,39 @@ void setup() {
 }
 
 void loop() {
-  if (!gameFinished) {
+  if (!gameFinished) {  // Oyun devam ederken
     countdown();
 
     if (!roundCompleted) {
       if (currentPlayer == 1) {
-        checkButton1();
-
+        checkButton1();  // 1. oyuncunun buton durumu kontrol edilir
         digitalWrite(player1Led, 1);
         digitalWrite(player2Led, 0);
-
       } else {
-        checkButton2();
-
+        checkButton2();  // 2. oyuncunun buton durumu kontrol edilir
         digitalWrite(player1Led, 0);
         digitalWrite(player2Led, 1);
       }
     }
 
-    if (roundCompleted) {
+    if (roundCompleted) {  // Tur tamamlandığında
       delay(2000);
-      //countdownInterval -= 300;
       num = 4;
       roundCompleted = false;
 
-      // Increase round number only after player 2's turn
+      // Tur sayısını arttır ve hızlandır
       if (currentPlayer == 2) {
         countdownInterval = int(countdownInterval * (1 - (0.09 * roundNumber)));
         roundNumber++;
       }
 
-      currentPlayer = (currentPlayer == 1) ? 2 : 1;     if (oldPlayer != currentPlayer) {
+      currentPlayer = (currentPlayer == 1) ? 2 : 1;
+      if (oldPlayer != currentPlayer) {
         updateScreen();
       }
       oldPlayer = currentPlayer;
-      // Check for end of game or start of extra round
+
+      // Oyun bitiş kontrolü
       if (roundNumber >= 6) {
         if (player1Score > player2Score) {
           display.clearDisplay();
@@ -229,14 +223,11 @@ void loop() {
           display.display();
           delay(5000);
           gameFinished = true;
-        } else {
-          // roundNumber++; // Start of extra round
         }
       }
     }
-
   } else {
-    // Game finished, waiting for reset button press
+    // Oyun bittiğinde sıfırlama butonunu bekle
     display.clearDisplay();
     display.setCursor(0, 0);
     display.println("Game Over");
@@ -244,3 +235,14 @@ void loop() {
     display.display();
   }
 }
+
+/*
+Çalışma Prensibi:
+Bu program bir Arduino tabanlı iki oyunculu refleks oyunu oluşturur. Oyuncular, kendi butonlarına doğru zamanda basarak puan kazanmaya çalışırlar. Her turda 5'ten 0'a doğru geri sayım yapılır ve oyuncular 0'a ulaşmadan butonlarına basmalıdır. Puanlama, turların zorluk seviyesine göre değişir. Oyun, OLED ekranında durum bilgilerini gösterir ve LED'lerle oyuncuların aktif olduğunu belirtir.
+
+Oyun Başlangıcı: Oyuncular, sıfırlama butonuna basarak oyuna başlar.
+Turlar: Her turda bir oyuncu aktif olur. 1 sayısına ulaşıldığında doğru zamanda butona basılırsa puan kazanılır.
+Puanlama: İlk turda 1 puan, sonraki turlarda artan miktarda puan verilir.
+Oyun Bitişi: 6. turdan sonra en çok puanı alan oyuncu kazanır. Beraberlik durumunda ekstra turlar başlatılabilir.
+
+*/
