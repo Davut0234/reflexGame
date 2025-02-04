@@ -382,6 +382,79 @@ void updateScreen() {
   display.setTextSize(1);
 }
 
+void checkGameEnd() {
+  if (roundNumber >= 6) {
+    if (player1Score > player2Score) {
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.println("Player 1 Wins!");
+      display.display();
+      delay(5000);
+      gameFinished = true;
+    } else if (player1Score < player2Score) {
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.println("Player 2 Wins!");
+      display.display();
+      delay(5000);
+      gameFinished = true;
+    }
+  }
+}
+
+void displayEndMessage() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Game Over");
+  display.println("Press Reset Button");
+  display.display();
+}
+
+void handleCurrentPlayerActions() {
+  if (currentPlayer == 1) {
+    checkButton1();
+    digitalWrite(player1Led, 1);
+    digitalWrite(player2Led, 0);
+  } else {
+    checkButton2();
+    digitalWrite(player1Led, 0);
+    digitalWrite(player2Led, 1);
+  }
+}
+
+void processRoundCompletion() {
+  delay(2000);
+  num = 4;
+  roundCompleted = false;
+  if (currentPlayer == 2) {
+    countdownInterval = int(countdownInterval * (1 - (0.09 * roundNumber)));
+    roundNumber++;
+  }
+  currentPlayer = (currentPlayer == 1) ? 2 : 1;
+  if (oldPlayer != currentPlayer) {
+    updateScreen();
+  }
+  oldPlayer = currentPlayer;
+  checkGameEnd();
+}
+
+void gameLoop() {
+  if (!gameFinished) {
+    countdown();
+    handleScoring();
+
+    if (!roundCompleted) {
+      handleCurrentPlayerActions();
+    }
+
+    if (roundCompleted) {
+      processRoundCompletion();
+    }
+  } else {
+    displayEndMessage();
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -412,68 +485,6 @@ void setup() {
 }
 
 void loop() {
-  if (!gameFinished) {
-    countdown();
-    handleScoring();
-
-    if (!roundCompleted) {
-      if (currentPlayer == 1) {
-        checkButton1();
-        digitalWrite(player1Led, 1);
-        digitalWrite(player2Led, 0);
-      } else {
-        checkButton2();
-        digitalWrite(player1Led, 0);
-        digitalWrite(player2Led, 1);
-      }
-    }
-
-    if (roundCompleted) {
-      delay(2000);
-      num = 4;
-      roundCompleted = false;
-      if (currentPlayer == 2) {
-        countdownInterval = int(countdownInterval * (1 - (0.09 * roundNumber)));
-        roundNumber++;
-      }
-      currentPlayer = (currentPlayer == 1) ? 2 : 1;
-      if (oldPlayer != currentPlayer) {
-        updateScreen();
-      }
-      oldPlayer = currentPlayer;
-      checkGameEnd();
-    }
-  } else {
-    displayEndMessage();
-  }
+  gameLoop();
 }
 
-void checkGameEnd() {
-  if (roundNumber >= 6) {
-    if (player1Score > player2Score) {
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.println("Player 1 Wins!");
-      display.display();
-      delay(5000);
-      gameFinished = true;
-    } else if (player1Score < player2Score) {
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.println("Player 2 Wins!");
-      display.display();
-      delay(5000);
-      gameFinished = true;
-    }
-  }
-}
-
-void displayEndMessage() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("Game Over");
-  display.println("Press Reset Button");
-  display.display();
-}
-
-*/
