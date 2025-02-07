@@ -248,6 +248,9 @@ Oyun Bitişi: 6. turdan sonra en çok puanı alan oyuncu kazanır. Beraberlik du
 
 Alternatif kod:
 
+*/
+
+/*
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -488,3 +491,5 @@ void loop() {
   gameLoop();
 }
 
+
+*/
